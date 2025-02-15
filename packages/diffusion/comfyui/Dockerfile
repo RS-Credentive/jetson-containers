@@ -10,10 +10,15 @@ FROM ${BASE_IMAGE}
 
 WORKDIR /opt
 
+# Generate a persistent .venv under /data/comfyui so that modules installed by nodes persist across reboots
+COPY comfy_venv.py /opt/
+RUN python3 /opt/comfy_venv.py 
+
 # Clone the repository:
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd ComfyUI && \
-    pip3 install --no-cache-dir -r requirements.txt
+    source /data/models/comfyui/venv/bin/activate &&\
+    python -m pip install --no-cache-dir -r requirements.txt
 
 RUN cd /opt/ComfyUI/custom_nodes && \
     git clone --recursive https://github.com/ltdrdata/ComfyUI-Manager.git && \
@@ -30,12 +35,18 @@ RUN cd /opt/ComfyUI/custom_nodes/comfyui-flux-accelerator/scripts && \
 
 WORKDIR /opt/ComfyUI/
 
-RUN pip3 install --no-cache-dir -U xformers onnxruntime-gpu triton lm_eval
-RUN pip3 install --no-cache-dir -U diffusers flash-attn sageattention  torchao
+RUN source /data/models/comfyui/venv/bin/activate &&\ 
+    python -m pip install --no-cache-dir -U xformers onnxruntime-gpu triton lm_eval
+
+RUN source /data/models/comfyui/venv/bin/activate &&\ 
+    python -m pip install --no-cache-dir -U diffusers flash-attn sageattention  torchao
 
 COPY workflow /opt/ComfyUI/workflow
+COPY extra_model_paths.yaml /opt/ComfyUI/extra_model_paths.yaml
 COPY extra /opt/ComfyUI/extra
 EXPOSE 8188
 
-RUN /opt/ComfyUI/extra/init.sh
-CMD python3 main.py --listen 0.0.0.0 --port ${PORT:-8188}
+RUN source /data/models/comfyui/venv/bin/activate &&\ 
+    /opt/ComfyUI/extra/init.sh
+CMD source /data/models/comfyui/venv/bin/activate &&\ 
+    python main.py --listen 0.0.0.0 --port ${PORT:-8188}
